@@ -30,45 +30,29 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Apply review fixes
+      - name: Break ModelStore barrel-import cycle
         shell: python
         run: |
           from pathlib import Path
 
-          quick = Path('src/components/EnterpriseQuickPanel/EnterpriseQuickPanel.tsx')
-          text = quick.read_text()
-          old = """      await modelStore.reinitializeContext();\n      await enterpriseRuntimeStore.refresh();"""
-          new = """      // A backend change must create a genuinely new native context.\n      // reinitializeContext() currently short-circuits when the same model is\n      // already active, so release first and then initialize explicitly.\n      await modelStore.releaseContext();\n      await modelStore.initContext(activeModel);\n      await enterpriseRuntimeStore.refresh();"""
-          if old not in text:
-              raise SystemExit('Expected quick-panel reload block not found')
-          text = text.replace(old, new, 1)
-          text = text.replace('        {/* eslint-disable-next-line react-native/no-inline-styles */}\n', '')
-          text = text.replace('                    {/* eslint-disable-next-line react-native/no-inline-styles */}\n', '')
-          quick.write_text(text)
+          path = Path('src/store/ModelStore.ts')
+          text = path.read_text()
+          old = "import {uiStore, hfStore} from '.';"
+          new = "import {uiStore} from './UIStore';\nimport {hfStore} from './HFStore';"
+          if old in text:
+              path.write_text(text.replace(old, new, 1))
+          elif new not in text:
+              raise SystemExit('ModelStore store imports are in an unexpected form')
 
-          runtime = Path('src/store/EnterpriseRuntimeStore.ts')
-          text = runtime.read_text()
-          if "import {Platform} from 'react-native';" not in text:
-              text = text.replace(
-                  "import {makeAutoObservable, runInAction} from 'mobx';\n",
-                  "import {makeAutoObservable, runInAction} from 'mobx';\nimport {Platform} from 'react-native';\n",
-                  1,
-              )
-          old = """    modelStore.setDevices([gpuDeviceName]);\n\n    if (backend === 'hybrid') {"""
-          new = """    modelStore.setDevices([gpuDeviceName]);\n\n    // The stock Android GPU path exposed by llama.rn 0.12.7 is OpenCL,\n    // whose device option only supports flash attention disabled. Keep this\n    // normalization beside backend selection so model reload cannot receive\n    // an invalid OpenCL + flash-attention combination. The Vulkan fork will\n    // replace this with backend-reported capabilities.\n    if (Platform.OS === 'android') {\n      modelStore.setFlashAttnType('off');\n    }\n\n    if (backend === 'hybrid') {"""
-          if old not in text:
-              raise SystemExit('Expected runtime backend-selection block not found')
-          runtime.write_text(text.replace(old, new, 1))
+      - name: Format changed source
+        run: yarn prettier --write src/store/ModelStore.ts
 
-      - name: Format Enterprise sources
-        run: yarn prettier --write src/components/ChatHeaderTitle/ChatHeaderTitle.tsx src/components/EnterpriseQuickPanel/EnterpriseQuickPanel.tsx src/store/EnterpriseRuntimeStore.ts
-
-      - name: Verify lint and types
+      - name: Verify ModelStore test and types
         run: |
-          yarn lint
+          yarn jest src/store/__tests__/ModelStore.test.ts --runInBand
           yarn typecheck
 
-      - name: Commit fixes
+      - name: Commit cycle fix
         run: |
           if git diff --quiet; then
             echo 'No changes to commit.'
@@ -76,6 +60,6 @@ jobs:
           fi
           git config user.name 'PocketPal Enterprise CI'
           git config user.email 'actions@users.noreply.github.com'
-          git add src/components/ChatHeaderTitle/ChatHeaderTitle.tsx src/components/EnterpriseQuickPanel/EnterpriseQuickPanel.tsx src/store/EnterpriseRuntimeStore.ts
-          git commit -m 'fix(enterprise): apply backend changes safely'
+          git add src/store/ModelStore.ts
+          git commit -m 'fix(enterprise): break store initialization cycle'
           git push origin HEAD:enterprise/mega3-vulkan-ui
