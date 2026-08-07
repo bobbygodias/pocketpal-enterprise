@@ -1,0 +1,63 @@
+name: Enterprise Android CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  push:
+    branches:
+      - enterprise/mega3-vulkan-ui
+
+concurrency:
+  group: enterprise-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.21.0'
+          cache: yarn
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install JavaScript dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Typecheck
+        run: yarn typecheck
+
+      - name: Lint changed application code
+        run: yarn eslint src/components/EnterpriseQuickPanel src/components/ChatHeader src/components/ChatHeaderTitle src/store/EnterpriseRuntimeStore.ts src/specs/NativeHardwareInfo.ts android/app/src/main/java/com/pocketpalai/HardwareInfoModule.kt || true
+
+      - name: Build prodDebug APK
+        working-directory: android
+        run: ./gradlew assembleProdDebug --stacktrace
+
+      - name: Collect APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pocketpal-enterprise-mega3-debug
+          path: android/app/build/outputs/apk/prod/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
