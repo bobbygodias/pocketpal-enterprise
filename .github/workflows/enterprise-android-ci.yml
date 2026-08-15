@@ -144,7 +144,24 @@ jobs:
         env:
           CMAKE_BUILD_PARALLEL_LEVEL: '2'
           GRADLE_OPTS: '-Dorg.gradle.workers.max=2'
-        run: ./gradlew assembleProdDebug -PrnllamaBuildFromSource=true -PreactNativeArchitectures=arm64-v8a --max-workers=2 --stacktrace
+        shell: bash
+        run: |
+          set -o pipefail
+          ./gradlew assembleProdDebug \
+            -PrnllamaBuildFromSource=true \
+            -PreactNativeArchitectures=arm64-v8a \
+            --max-workers=2 \
+            --console=plain \
+            --stacktrace 2>&1 | tee ../enterprise-build.log
+
+      - name: Preserve native build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pocketpal-enterprise-native-build-log
+          path: enterprise-build.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Collect APK
         if: success()
