@@ -57,8 +57,8 @@ jobs:
       - name: Prepare llama.rn Vulkan backend
         run: bash scripts/prepare-llama-vulkan.sh
 
-      - name: Probe Vulkan registry factory for diagnostic v3
-        run: bash scripts/probe-vulkan-registry-for-diagnostic-v3.sh
+      - name: Probe Vulkan registry device count for diagnostic v4
+        run: bash scripts/probe-vulkan-device-count-for-diagnostic-v4.sh
 
       - name: Prune llama.rn to MEGA 3 native targets
         shell: python
@@ -104,10 +104,6 @@ jobs:
               raise SystemExit('Could not locate outer llama.rn ARM64 JNI target block')
           outer.write_text(text.replace(old, new, 1))
 
-      # The upstream production Firebase config is intentionally not committed.
-      # A local-only placeholder lets Gradle process the prodDebug variant while
-      # keeping real credentials out of the fork. Local LLM/chat paths do not
-      # depend on these placeholder Firebase values.
       - name: Create local CI Firebase placeholder
         run: |
           cat > android/app/google-services.json <<'JSON'
@@ -126,23 +122,15 @@ jobs:
                   }
                 },
                 "oauth_client": [],
-                "api_key": [
-                  {
-                    "current_key": "AIzaSyLOCAL_ONLY_PLACEHOLDER_NOT_A_REAL_KEY"
-                  }
-                ],
-                "services": {
-                  "appinvite_service": {
-                    "other_platform_oauth_client": []
-                  }
-                }
+                "api_key": [{"current_key": "LOCAL_ONLY_PLACEHOLDER"}],
+                "services": {"appinvite_service": {"other_platform_oauth_client": []}}
               }
             ],
             "configuration_version": "1"
           }
           JSON
 
-      - name: Build prodDebug ARM64 APK with Vulkan registry probe
+      - name: Build prodDebug ARM64 APK with Vulkan device-count probe
         working-directory: android
         env:
           CMAKE_BUILD_PARALLEL_LEVEL: '2'
@@ -161,7 +149,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pocketpal-enterprise-native-build-log-v3
+          name: pocketpal-enterprise-native-build-log-v4
           path: enterprise-build.log
           if-no-files-found: warn
           retention-days: 7
@@ -170,7 +158,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: pocketpal-enterprise-mega3-vulkan-test-03-registry-probe
+          name: pocketpal-enterprise-mega3-vulkan-test-04-device-count-probe
           path: android/app/build/outputs/apk/prod/debug/*.apk
           if-no-files-found: error
           retention-days: 7
