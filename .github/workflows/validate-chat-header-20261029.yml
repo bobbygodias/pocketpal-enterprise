@@ -1,0 +1,27 @@
+# Temporary, branch-scoped CI check for PR #2; remove after confirmation.
+name: Validate ChatHeaderTitle fix
+
+on:
+  push:
+    branches:
+      - fix/chat-header-title-ci-20261029
+
+permissions:
+  contents: read
+
+jobs:
+  chat-header-title:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.21.0'
+          cache: yarn
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Install dependencies
+        run: yarn install
+      - name: Validate ChatHeaderTitle tests
+        run: yarn test src/components/ChatHeaderTitle/__tests__/ChatHeaderTitle.test.tsx --runInBand --coverage=false
