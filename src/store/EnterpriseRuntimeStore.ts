@@ -149,6 +149,22 @@ class EnterpriseRuntimeStore {
       : null;
   }
 
+  // The summary labelled "MODELO ATIVO" must never display pending
+  // settings as though they were applied to an existing native context.
+  // If native context settings are unknown, show an unknown value rather
+  // than inventing an active configuration.
+  get displayedContextMetrics(): {n_ctx: number | null; n_threads: number | null} {
+    const modelStore = getModelStore();
+    const params = modelStore.context
+      ? modelStore.activeContextSettings
+      : modelStore.contextInitParams;
+
+    return {
+      n_ctx: params?.n_ctx ?? null,
+      n_threads: params?.n_threads ?? null,
+    };
+  }
+
   get requiresModelReload(): boolean {
     const modelStore = getModelStore();
     if (!modelStore.context || !modelStore.activeContextSettings) {

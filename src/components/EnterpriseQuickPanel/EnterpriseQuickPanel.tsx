@@ -133,6 +133,7 @@ export const EnterpriseQuickPanel: React.FC = observer(() => {
     }
   };
 
+  const displayedContextMetrics = enterpriseRuntimeStore.displayedContextMetrics;
   const effectiveLayers = enterpriseRuntimeStore.effectiveGpuLayers;
   const backendDeviceName =
     enterpriseRuntimeStore.gpuBackendDevice?.deviceName ??
@@ -214,7 +215,7 @@ export const EnterpriseQuickPanel: React.FC = observer(() => {
                       Contexto
                     </Text>
                     <Text variant="bodyMedium">
-                      {modelStore.contextInitParams.n_ctx}
+                      {displayedContextMetrics.n_ctx ?? '—'}
                     </Text>
                   </View>
                   <View style={styles.metric}>
@@ -222,7 +223,7 @@ export const EnterpriseQuickPanel: React.FC = observer(() => {
                       Threads
                     </Text>
                     <Text variant="bodyMedium">
-                      {modelStore.contextInitParams.n_threads}
+                      {displayedContextMetrics.n_threads ?? '—'}
                     </Text>
                   </View>
                   <View style={styles.metric}>

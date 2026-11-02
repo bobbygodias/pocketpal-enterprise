@@ -37,6 +37,8 @@ type BackendSettings = {
   n_gpu_layers: number;
   devices?: string[];
   flash_attn_type: 'auto' | 'on' | 'off';
+  n_ctx?: number;
+  n_threads?: number;
 };
 
 const modelStore = jest.requireMock('../ModelStore').modelStore as {
@@ -51,6 +53,8 @@ const settings: BackendSettings = {
   n_gpu_layers: 8,
   devices: ['OpenCL'],
   flash_attn_type: 'off',
+  n_ctx: 4096,
+  n_threads: 4,
 };
 
 describe('EnterpriseRuntimeStore backend reporting', () => {
@@ -94,6 +98,49 @@ describe('EnterpriseRuntimeStore backend reporting', () => {
   it('reports idle without an active native context', () => {
     modelStore.context = undefined;
     expect(enterpriseRuntimeStore.effectiveBackend).toBe('idle');
+  });
+
+  it('shows the loaded context metrics rather than pending settings', () => {
+    modelStore.activeContextSettings = {
+      ...settings,
+      n_ctx: 2048,
+      n_threads: 2,
+    };
+    modelStore.contextInitParams = {
+      ...settings,
+      n_ctx: 8192,
+      n_threads: 8,
+    };
+    expect(enterpriseRuntimeStore.displayedContextMetrics).toEqual({
+      n_ctx: 2048,
+      n_threads: 2,
+    });
+  });
+
+  it('uses requested metrics only while no native context is loaded', () => {
+    modelStore.context = undefined;
+    modelStore.contextInitParams = {
+      ...settings,
+      n_ctx: 8192,
+      n_threads: 8,
+    };
+    expect(enterpriseRuntimeStore.displayedContextMetrics).toEqual({
+      n_ctx: 8192,
+      n_threads: 8,
+    });
+  });
+
+  it('does not invent loaded metrics if active settings are unavailable', () => {
+    modelStore.activeContextSettings = undefined;
+    modelStore.contextInitParams = {
+      ...settings,
+      n_ctx: 8192,
+      n_threads: 8,
+    };
+    expect(enterpriseRuntimeStore.displayedContextMetrics).toEqual({
+      n_ctx: null,
+      n_threads: null,
+    });
   });
 
   it('requires a reload when only flash attention changes', () => {
