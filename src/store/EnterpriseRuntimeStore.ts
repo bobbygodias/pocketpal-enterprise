@@ -130,19 +130,11 @@ class EnterpriseRuntimeStore {
       return 'cpu';
     }
 
-    // Auto-selection may choose different devices internally. Until the native
-    // bridge reports the loaded backend and actual offloaded layer count, do
-    // not pretend that a detected accelerator proves it was used.
-    if (!devices || devices.length === 0) {
-      return 'unverified';
-    }
-
-    const totalLayers = activeModel?.ggufMetadata?.n_layers;
-    if (totalLayers && layers < totalLayers) {
-      return 'hybrid';
-    }
-
-    return 'gpu';
+    // A requested accelerator is not proof of actual GPU execution.
+    // OpenCL can silently fall back to CPU for unsupported model formats,
+    // even with an explicitly selected device. Wait for native telemetry
+    // (backend and actual offloaded layer count) before claiming GPU/hybrid.
+    return 'unverified';
   }
 
   get requestedGpuLayers(): number {
@@ -170,6 +162,7 @@ class EnterpriseRuntimeStore {
 
     return (
       requested.n_gpu_layers !== active.n_gpu_layers ||
+      requested.flash_attn_type !== active.flash_attn_type ||
       requestedDevices.length !== activeDevices.length ||
       requestedDevices.some((device, index) => device !== activeDevices[index])
     );
